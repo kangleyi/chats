@@ -45,11 +45,6 @@ public class ServerThread implements Runnable {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			try {
-				this.socket.close();
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			}
 		}
 	}
 
@@ -94,9 +89,8 @@ public class ServerThread implements Runnable {
 					while (it.hasNext()) {// 检查是否重复登陆
 						ServerThread st = it.next();
 						if (st.userName.equals(this.userName) && st.userPassword.equals(this.userPassword)) {
-							this.out.writeUTF("用户已经在线，不能重复登陆！");
-							this.out.flush();
-							return;
+							ServerStart.serverThread.remove(st);
+							ServerStart.serverThread.add(this);
 						}
 					}
 					if (it.hasNext() == false) {// 可以登录
@@ -184,8 +178,12 @@ public class ServerThread implements Runnable {
 			for (int i = 0; i < ServerStart.serverThread.size(); i++) {
 				ServerThread st = ServerStart.serverThread.get(i);
 				if (temp[0].equals(st.userName)) {
-					st.out.writeUTF(flag + "-1_~" + this.userName + "~2/-" + temp[1]);
-					st.out.flush();
+					if(!st.socket.isOutputShutdown()){
+						st.out.writeUTF(flag + "-1_~" + this.userName + "~2/-" + temp[1]);
+						st.out.flush();
+					}else{
+						new Chart(st.userName,temp[1]).add();
+					}
 				}
 			}
 		}
@@ -196,22 +194,18 @@ public class ServerThread implements Runnable {
 		for (int i = 0; i < ServerStart.serverThread.size(); i++) {
 			ServerThread st = ServerStart.serverThread.get(i);
 			if (data.equals(st.userName)) {
-				ServerStart.serverThread.remove(i);
+				//ServerStart.serverThread.remove(i);
 				// 更新服务器列表
 				ServerGUI.vc1.remove(st.userName);
 				String str = st.socket.getInetAddress() + ": " + st.socket.getPort();
 				ServerGUI.vc2.remove(str);
 			}
+			st.out.writeUTF("下线" + "-1_~" + data);
+			st.out.flush();
 		}
 		ServerGUI.list1.setListData(ServerGUI.vc1);
 		ServerGUI.list2.setListData(ServerGUI.vc2);
 		ServerGUI.label1.setText("在线用户： " + ServerStart.serverThread.size() + "人");
-		// 通知所有人
-		for (int j = 0; j < ServerStart.serverThread.size(); j++) {
-			ServerThread st2 = ServerStart.serverThread.get(j);
-			st2.out.writeUTF("下线" + "-1_~" + data);
-			st2.out.flush();
-		}
 	}
 
 	// 连接数据库
