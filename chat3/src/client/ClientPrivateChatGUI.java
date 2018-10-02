@@ -44,14 +44,16 @@ public class ClientPrivateChatGUI extends JFrame {
 	private JSplitPane splitPane1;// 左侧分隔面板
 	private JSplitPane splitPane2;// 右侧分隔面板
 	private JSplitPane splitPane3;// 总分隔面板
+	private Socket cliScoket;
 
 	String name = null;
 	Socket socket = null;
 
-	public ClientPrivateChatGUI(Socket socket, String name) throws Exception {
+	public ClientPrivateChatGUI(Socket serverScoket,Socket cliSocket, String name) throws Exception {
 		setResizable(false);
 		this.name = name;
-		this.socket = socket;
+		this.cliScoket=cliSocket;
+		this.socket = serverScoket;
 		this.setSize(598, 544);
 		this.setLocationRelativeTo(null);
 
@@ -145,8 +147,14 @@ public class ClientPrivateChatGUI extends JFrame {
 					String str = sendText.getText();
 					if (str.trim().length() == 0)
 						return;
-					DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-					out.writeUTF("私聊" + "-1_~" + name + "~2/-" + str);
+					DataOutputStream out;
+					if(name.contains("不在线")|| cliSocket.isClosed()){
+						out= new DataOutputStream(socket.getOutputStream());
+						out.writeUTF("私聊" + "-1_~" + name.split("-")[0] + "~2/-" + str);
+					}else{
+						out= new DataOutputStream(cliScoket.getOutputStream());
+						out.writeUTF("私聊" + "-1_~" + name + "~2/-" + str);
+					}
 					out.flush();
 					sendText.setText("");
 					Date date=new Date();

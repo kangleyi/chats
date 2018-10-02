@@ -8,9 +8,13 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Vector;
 
@@ -186,8 +190,26 @@ public class ClientMainGUI extends JFrame {
 									return;
 								}
 							}
-							priChatFrame.add(new ClientPrivateChatGUI(socket, str));
-							ClientPrivateChatGUI.hisName.setText("对方：" + str);
+							Socket socketClient = new Socket();
+							String[] attr=str.split("-/")[1].split(":");
+							SocketAddress sAddr = new InetSocketAddress(attr[0],Integer.valueOf(attr[1]));
+							try{
+								socketClient.connect(sAddr, 8000);
+								DataOutputStream out=new DataOutputStream(socketClient.getOutputStream());
+								out.writeUTF("链接-1_~" + str);
+								out.flush();
+								String rst = new DataInputStream(socketClient.getInputStream()).readUTF();
+								if(rst.contains("链接成功")){
+									new Thread(new ClientSender(socketClient, str)).start();
+								}else{
+									str+="（链接失败）";
+								}
+								priChatFrame.add(new ClientPrivateChatGUI(socket,socketClient, str));
+								ClientPrivateChatGUI.hisName.setText("对方：" + str);
+							}catch (ConnectException cs){
+								priChatFrame.add(new ClientPrivateChatGUI(socket,socketClient, str+"(不在线)"));
+								ClientPrivateChatGUI.hisName.setText("对方：" + str+"(不在线)");
+							}
 						} catch (Exception e1) {
 							try {
 								socket.close();

@@ -23,6 +23,7 @@ public class ClientThread implements Runnable {
 			DataInputStream in = new DataInputStream(socket.getInputStream());
 			while (true) {
 				String str = in.readUTF();
+				System.out.println(str);
 				dealWithMsg(str);
 			}
 		} catch (Exception e) {

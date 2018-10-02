@@ -12,13 +12,17 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 
 //启动一个socket线程
 public class ServerThread implements Runnable {
 	Socket socket = null;
 	DataInputStream in;
 	DataOutputStream out;
+
+	boolean isLine;
 
 	String userName;
 	private String userPassword;
@@ -85,40 +89,40 @@ public class ServerThread implements Runnable {
 		while (rs.next()) { // 检查用户是否存在
 			if (rs.getString(1).equals(this.userName)) {
 				if (rs.getString(2).equals(this.userPassword)) { // 密码输入正确
-					Iterator<ServerThread> it = ServerStart.serverThread.iterator();
-					while (it.hasNext()) {// 检查是否重复登陆
-						ServerThread st = it.next();
-						if (st.userName.equals(this.userName) && st.userPassword.equals(this.userPassword)) {
-							ServerStart.serverThread.remove(st);
-							ServerStart.serverThread.add(this);
+					if(ServerStart.serverThread.containsKey(this.userName)){
+						if(ServerStart.serverThread.get(this.userName).isLine){
+							this.out.writeUTF("用户已经在线，不能重复登陆！");
+							this.out.flush();
+							return;
 						}
 					}
-					if (it.hasNext() == false) {// 可以登录
-						ServerStart.serverThread.add(this);
-						// 更新服务器列表
-						ServerGUI.vc1.add(this.userName);
-						String str = this.socket.getInetAddress() + ": " + this.socket.getPort();
-						ServerGUI.vc2.add(str);
-
-						ServerGUI.list1.setListData(ServerGUI.vc1);
-						ServerGUI.list2.setListData(ServerGUI.vc2);
-						ServerGUI.label1.setText("在线用户： " + ServerStart.serverThread.size() + "人");
-
-						out.writeUTF("登录成功！");
-						out.flush();
-
-						// 向所有在线成员发消息
-						for (int i = 0; i < ServerStart.serverThread.size(); i++) {
-							ServerThread st = ServerStart.serverThread.get(i);
-							if (this.userName != st.userName) {
+					this.isLine=true;
+					ServerStart.serverThread.put(this.userName,this);
+					ServerGUI.vc1.add(this.userName);
+					ServerGUI.vc2.add(this.socket.getInetAddress() + ": " + this.socket.getPort());
+					ServerGUI.list1.setListData(ServerGUI.vc1);
+					ServerGUI.list2.setListData(ServerGUI.vc2);
+					ServerGUI.label1.setText("在线用户： " + ServerStart.serverThread.size() + "人");
+					out.writeUTF("登录成功！");
+					out.flush();
+					// 向所有在线成员发消息
+					for(String key:ServerStart.serverThread.keySet()){
+						if(!key.equals(userName)){
+							ServerThread st = ServerStart.serverThread.get(key);
+							if(st.isLine){
 								st.out.writeUTF("上线" + "-1_~" + this.userName);
 								st.out.flush();
 								this.out.writeUTF("上线" + "-1_~" + st.userName);
 								this.out.flush();
 							}
 						}
-						return;
 					}
+					List<Chart> list=new Chart(this.userName).query();
+					for(Chart cht:list){
+						out.writeUTF("私聊" + "-1_~" + cht.getSender()+ "~2/-" + cht.getContent());
+						out.flush();
+					}
+					return;
 				} else {
 					out.writeUTF("密码错误！");
 					out.flush();
@@ -128,9 +132,7 @@ public class ServerThread implements Runnable {
 		}
 		out.writeUTF("用户不存在！");
 		out.flush();
-
 		disconnectDatabase();
-
 	}
 
 	// 注册
@@ -173,39 +175,34 @@ public class ServerThread implements Runnable {
 	// 私聊
 	public void privateChat(String flag, String data) throws IOException {
 		String[] temp = data.split("~2/-");
-
 		if (temp[1] != null && temp[1].length() != 0) {
-			for (int i = 0; i < ServerStart.serverThread.size(); i++) {
-				ServerThread st = ServerStart.serverThread.get(i);
-				if (temp[0].equals(st.userName)) {
-					if(!st.socket.isOutputShutdown()){
-						st.out.writeUTF(flag + "-1_~" + this.userName + "~2/-" + temp[1]);
-						st.out.flush();
-					}else{
-						new Chart(st.userName,temp[1]).add();
-					}
-				}
+			ServerThread st = ServerStart.serverThread.get(temp[0]);
+			if(st!=null && st.isLine){
+				st.out.writeUTF(flag + "-1_~" + this.userName + "~2/-" + temp[1]);
+				st.out.flush();
+			}else{
+				new Chart(this.userName,temp[0],temp[1]).add();
 			}
 		}
 	}
 
 	// 关闭服务器端线程
-	public void serverThreadClose(String flag, String data) throws IOException {
-		for (int i = 0; i < ServerStart.serverThread.size(); i++) {
-			ServerThread st = ServerStart.serverThread.get(i);
-			if (data.equals(st.userName)) {
-				//ServerStart.serverThread.remove(i);
-				// 更新服务器列表
-				ServerGUI.vc1.remove(st.userName);
-				String str = st.socket.getInetAddress() + ": " + st.socket.getPort();
-				ServerGUI.vc2.remove(str);
-			}
+	public void serverThreadClose(String flag, String data)  {
+		ServerThread st = ServerStart.serverThread.get(data);
+		// 更新服务器列表
+		ServerGUI.vc1.remove(st.userName);
+		String str = st.socket.getInetAddress() + ": " + st.socket.getPort();
+		ServerGUI.vc2.remove(str);
+		try {
 			st.out.writeUTF("下线" + "-1_~" + data);
 			st.out.flush();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 		ServerGUI.list1.setListData(ServerGUI.vc1);
 		ServerGUI.list2.setListData(ServerGUI.vc2);
-		ServerGUI.label1.setText("在线用户： " + ServerStart.serverThread.size() + "人");
+		ServerGUI.label1.setText("在线用户： " + ServerGUI.vc1.size() + "人");
+		st.isLine=false;
 	}
 
 	// 连接数据库
@@ -223,4 +220,5 @@ public class ServerThread implements Runnable {
 		rs.close();
 		ps.close();
 	}
+
 }

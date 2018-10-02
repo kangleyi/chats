@@ -1,7 +1,11 @@
 package client;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -11,19 +15,26 @@ import javax.swing.JOptionPane;
 public class ClientThread implements Runnable {
 	Socket socket = null;
 	String name = null;
-	public ClientThread(Socket socket, String username) throws Exception {
+	ServerSocket server = null;
+	int port;
+	public ClientThread(Socket socket, String username,String port) throws Exception {
 		this.socket = socket;
 		this.name = username;
+		this.port = Integer.valueOf(port);
 		new ClientMainGUI(this.socket, username);
 		(new Thread(this)).start();
+		new Thread(new ClientServer(Integer.valueOf(port),socket,username)).start();
 	}
 
 	public void run() {
 		try {
 			DataInputStream in = new DataInputStream(socket.getInputStream());
 			while (true) {
-				String str = in.readUTF();
-				dealWithMsg(str);
+				if(socket.isConnected()){
+					String str = in.readUTF();
+					System.out.println(str);
+					dealWithMsg(str);
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -96,9 +107,26 @@ public class ClientThread implements Runnable {
 					return;
 				}
 			}
-			ClientPrivateChatGUI cpcg = new ClientPrivateChatGUI(socket, name);
+			Socket socketClient = null;
+			if(!name.contains("不在线")) {
+				socketClient=new Socket();
+				String[] attr=name.split("-/")[1].split(":");
+				SocketAddress sAddr = new InetSocketAddress(attr[0],Integer.valueOf(attr[1]));
+				socketClient.connect(sAddr, 8000);
+				DataOutputStream out=new DataOutputStream(socketClient.getOutputStream());
+				out.writeUTF("链接-1_~" + name);
+				out.flush();
+				String str = new DataInputStream(socketClient.getInputStream()).readUTF();
+				if(str.contains("链接成功")){
+					new Thread(new ClientSender(socketClient, name)).start();
+				}else{
+					name+="（链接失败）";
+				}
+			}
+			ClientPrivateChatGUI cpcg=new ClientPrivateChatGUI(this.socket,socketClient,name);
 			ClientMainGUI.priChatFrame.add(cpcg);
 			ClientPrivateChatGUI.hisName.setText("对方：" + name);
+
 			cpcg.chatText.append(time+"\n"+"<" + name + ">" + "：" + "\n");
 			cpcg.chatText.append("        " + msg + "\n");
 		}
@@ -116,7 +144,7 @@ public class ClientThread implements Runnable {
 
 	}
 
-	public void offline(String data) {
+	public void offline(String data) throws IOException {
 		if (!ClientMainGUI.array.contains(data))
 			return;
 		ClientMainGUI.array.remove(data);

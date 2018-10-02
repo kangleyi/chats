@@ -3,11 +3,13 @@ package server;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.AbstractList;
+import java.util.Map;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ServerStart {
 
-	static AbstractList<ServerThread> serverThread = new Vector<ServerThread>();
+	static Map<String,ServerThread> serverThread = new ConcurrentHashMap<>();
 
 	// 启动服务器端，开始在端口号上监听
 	public static void main(String[] args) throws Exception {

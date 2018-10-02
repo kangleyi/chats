@@ -6,6 +6,15 @@ public class Chart {
     private Integer id;
     private String user;
     private String content;
+    private String sender;
+
+    public String getSender() {
+        return sender;
+    }
+
+    public void setSender(String sender) {
+        this.sender = sender;
+    }
 
     public Integer getId() {
         return id;
@@ -31,8 +40,9 @@ public class Chart {
         this.content = content;
     }
 
-    public Chart(String user, String content) {
+    public Chart(String sender,String user, String content) {
         this.user = user;
+        this.sender = sender;
         this.content = content;
     }
 
@@ -44,7 +54,7 @@ public class Chart {
     }
 
     public void add(){
-        DBUnitHelper.executeUpdate("INSERT INTO chat ( `user`, `content`) VALUES (?,?)",user,content);
+        DBUnitHelper.executeUpdate("INSERT INTO chat (`sender`, `user`, `content`) VALUES (?,?,?)",sender,user,content);
     }
 
     public List<Chart> query(){

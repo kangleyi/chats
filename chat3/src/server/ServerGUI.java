@@ -85,8 +85,8 @@ public class ServerGUI extends JFrame {
 		this.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) {
 				try {
-					for (int i = 0; i < ServerStart.serverThread.size(); i++) {
-						ServerThread st = ServerStart.serverThread.get(i);
+					for(String str:ServerStart.serverThread.keySet()){
+						ServerThread st = ServerStart.serverThread.get(str);
 						st.out.writeUTF("关闭" + "-1_~" + 1);
 						st.out.flush();
 					}
